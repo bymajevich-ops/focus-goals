@@ -5,6 +5,7 @@ const monthName = new Intl.DateTimeFormat('ru-RU', { month: 'long', year: 'numer
 let user = null, state = { goals: [] }, reminderTimer = null;
 const error = m => alert(m);
 const reminderKey = () => `focus-hourly-reminders:${user?.id || 'guest'}`;
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
 
 async function save() { if (!user) return; const { error: e } = await client.from('monthly_plans').upsert({ user_id: user.id, month_key: monthKey, plan: state }, { onConflict: 'user_id,month_key' }); if (e) error('Не удалось сохранить: ' + e.message); }
 async function loadPlan() { const { data, error: e } = await client.from('monthly_plans').select('plan').eq('month_key', monthKey).maybeSingle(); if (e) { error('Не удалось загрузить план: ' + e.message); return; } state = data?.plan || { goals: [] }; renderGoals(); if (!state.goals.length) $('#onboarding').showModal(); }
@@ -15,7 +16,7 @@ async function addGoal(x) { state.goals.push({ id: crypto.randomUUID(), title: x
 
 function remindersEnabled() { return localStorage.getItem(reminderKey()) === 'true'; }
 function updateReminderUi() { const supported = 'Notification' in window; $('#reminderToggle').checked = remindersEnabled(); $('#reminderToggle').disabled = !supported; $('#reminderStatus').textContent = !supported ? 'Уведомления не поддерживаются этим браузером.' : Notification.permission === 'denied' ? 'Уведомления заблокированы в настройках iPhone или браузера.' : remindersEnabled() ? 'Напоминания включены.' : 'Напоминания выключены.'; }
-async function showReminder() { if (Notification.permission !== 'granted') return; const options = { body: 'Открой план и проверь прогресс по целям.', icon: 'favicon.png', badge: 'favicon.png', tag: 'focus-hourly-reminder', renotify: true }; const registration = await navigator.serviceWorker?.ready; if (registration) registration.showNotification('Время проверить цели', options); else new Notification('Время проверить цели', options); }
+async function showReminder() { if (Notification.permission !== 'granted') return; const options = { body: 'Открой план и проверь прогресс по целям.', icon: 'favicon.png', badge: 'favicon.png', tag: 'focus-hourly-reminder', renotify: true }; if ('serviceWorker' in navigator) { const registration = await navigator.serviceWorker.ready; return registration.showNotification('Время проверить цели', options); } new Notification('Время проверить цели', options); }
 function startHourlyReminders() { clearTimeout(reminderTimer); if (!remindersEnabled()) return; const scheduleNext = () => { const now = new Date(), next = new Date(now); next.setMinutes(0, 0, 0); next.setHours(now.getHours() + 1); reminderTimer = setTimeout(async () => { if (remindersEnabled()) await showReminder(); scheduleNext(); }, next - now); }; scheduleNext(); }
 async function setReminders(enabled) { if (enabled && Notification.permission !== 'granted') { const permission = await Notification.requestPermission(); if (permission !== 'granted') { $('#reminderToggle').checked = false; updateReminderUi(); return; } } localStorage.setItem(reminderKey(), String(enabled)); updateReminderUi(); startHourlyReminders(); }
 
