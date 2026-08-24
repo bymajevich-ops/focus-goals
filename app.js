@@ -1,97 +1,11 @@
-const storageKey = "focus-goals-v1";
-const defaults = [
-  { id: crypto.randomUUID(), title: "Прочитать 2 книги", done: 1, target: 2, unit: "книги", color: "violet" },
-  { id: crypto.randomUUID(), title: "Тренироваться регулярно", done: 3, target: 12, unit: "тренировок", color: "green" }
-];
-let goals = JSON.parse(localStorage.getItem(storageKey) || "null") || defaults;
-const $ = (selector) => document.querySelector(selector);
-const save = () => localStorage.setItem(storageKey, JSON.stringify(goals));
-const plural = (number, unit) => `${number} из ${unit}`;
-
-function updateSummary() {
-  const target = goals.reduce((sum, goal) => sum + goal.target, 0);
-  const done = goals.reduce((sum, goal) => sum + goal.done, 0);
-  const percent = target ? Math.round((done / target) * 100) : 0;
-  $("#totalProgress").textContent = `${percent}%`;
-  $("#totalBar").style.width = `${percent}%`;
-  $("#goalCount").textContent = `${goals.length} ${goals.length === 1 ? "активная" : "активных"}`;
-  $("#overviewText").textContent = goals.length ? `Уже сделано ${done} шагов из ${target}. Продолжай!` : "Добавь первую цель — начнём спокойно.";
-}
-
-function render() {
-  const list = $("#goalList");
-  list.innerHTML = "";
-  if (!goals.length) list.innerHTML = '<div class="empty"><strong>Здесь появятся твои цели</strong>Начни с одной маленькой и понятной.</div>';
-  goals.forEach((goal) => {
-    const card = $("#goalTemplate").content.firstElementChild.cloneNode(true);
-    const percent = Math.round((goal.done / goal.target) * 100);
-    card.dataset.color = goal.color;
-    card.querySelector("h3").textContent = goal.title;
-    card.querySelector(".done-count").textContent = `${goal.done} / ${goal.target}`;
-    card.querySelector(".percent").textContent = `${percent}%`;
-    card.querySelector(".unit-label").textContent = plural(goal.target, goal.unit || "шагов");
-    card.querySelector(".progress span").style.width = `${percent}%`;
-    card.querySelector(".plus").onclick = () => changeProgress(goal.id, 1);
-    card.querySelector(".minus").onclick = () => changeProgress(goal.id, -1);
-    card.querySelector(".delete-button").onclick = () => { goals = goals.filter((item) => item.id !== goal.id); save(); render(); };
-    list.append(card);
-  });
-  updateSummary();
-}
-function changeProgress(id, amount) {
-  const goal = goals.find((item) => item.id === id);
-  goal.done = Math.max(0, Math.min(goal.target, goal.done + amount));
-  save(); render();
-}
-function openDialog() { $("#goalForm").reset(); $("#goalTarget").value = 7; $("#goalUnit").value = "дней"; $("#goalDialog").showModal(); }
-$("#addGoal").onclick = openDialog; $("#addGoalTop").onclick = openDialog; $("#closeDialog").onclick = () => $("#goalDialog").close();
-$("#goalForm").addEventListener("submit", (event) => { event.preventDefault(); const data = new FormData(event.currentTarget); goals.unshift({ id:crypto.randomUUID(), title:data.get("title").trim(), target:Number(data.get("target")), done:0, unit:data.get("unit").trim() || "шагов", color:data.get("color") }); save(); $("#goalDialog").close(); render(); });
-$("#today").textContent = new Intl.DateTimeFormat("ru-RU", { weekday:"long", day:"numeric", month:"long" }).format(new Date());
-
-const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-let recognition;
-async function createGoalFromVoice(phrase) {
-  const parsed = understandGoalRequest(phrase);
-  goals.unshift({ id:crypto.randomUUID(), ...parsed, color:"green" }); save(); render();
-  $("#voiceStatus").textContent = "Цель добавлена.";
-}
-
-function understandGoalRequest(phrase) {
-  const raw = phrase.replace(/[.!,?]/g, "").replace(/\s+/g, " ").trim();
-  const lower = raw.toLowerCase();
-  const amount = lower.match(/(\d{1,4})\s*(книг[аи]?|раз[а]?|дн(?:ей|я|ь)?|урок(?:ов|а)?|шаг(?:ов|а)?|трениров(?:ок|ки)?|глав(?:ы|а)?)/i);
-  const target = amount ? Number(amount[1]) : 1;
-  const forms = { "книга":"книг", "книги":"книг", "книг":"книг", "раз":"раз", "раза":"раз", "дней":"дней", "дня":"дней", "день":"дней", "уроков":"уроков", "урока":"уроков", "шагов":"шагов", "шага":"шагов", "тренировок":"тренировок", "тренировки":"тренировок", "главы":"глав", "глава":"глав" };
-  const unit = amount ? (forms[amount[2].toLowerCase()] || amount[2].toLowerCase()) : "шагов";
-  let title = lower
-    .replace(/^(я )?(хочу |хотел(?:а)? бы |можешь |пожалуйста |добавь |создай |сделай |нужно |надо )+/i, "")
-    .replace(/^(добавить |создать )?(новую )?цель\s*/i, "")
-    .replace(/\s+(за|в течение|до конца)\s+.+$/i, "")
-    .replace(/\s+(можешь|пожалуйста|сделай|создай|добавь)\s*$/i, "")
-    .trim();
-  const action = title.match(/(прочитать|выучить|пройти|сделать|написать|ходить|тренироваться|бегать|заниматься)/i);
-  if (!action && amount) title = `Сделать ${target} ${unit}`;
-  if (!title) title = "Новая цель";
-  title = title[0].toUpperCase() + title.slice(1);
-  return { title, target, unit, done: Math.min(1, target) };
-}
-function openVoiceDialog() {
-  $("#voiceText").textContent = "";
-  $("#voiceStatus").textContent = Recognition ? "Нажми кнопку и скажи цель." : "На этом устройстве голосовой ввод недоступен.";
-  $("#startVoice").disabled = !Recognition;
-  $("#voiceDialog").showModal();
-}
-$("#voiceGoal").onclick = openVoiceDialog;
-$("#closeVoiceDialog").onclick = () => { recognition?.abort(); $("#voiceDialog").close(); };
-$("#startVoice").onclick = () => {
-  if (!Recognition) return;
-  recognition?.abort();
-  recognition = new Recognition(); recognition.lang = "ru-RU"; recognition.interimResults = true; recognition.maxAlternatives = 1;
-  $("#voiceStatus").textContent = "Слушаю…"; $("#startVoice").textContent = "Слушаю…"; $("#voiceOrb").classList.add("is-listening");
-  recognition.onresult = (event) => { const phrase = [...event.results].map((result) => result[0].transcript).join(""); $("#voiceText").textContent = `«${phrase}»`; if (event.results[event.results.length - 1].isFinal) { createGoalFromVoice(phrase); $("#startVoice").textContent = "Сказать ещё"; } };
-  recognition.onerror = () => { $("#voiceStatus").textContent = "Не удалось распознать фразу. Попробуй ещё раз."; $("#startVoice").textContent = "Повторить"; };
-  recognition.onend = () => $("#voiceOrb").classList.remove("is-listening");
-  recognition.start();
-};
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
-render();
+const client=window.supabase.createClient('https://doesaksrwklymiybkbvk.supabase.co','sb_publishable_Ik4yK4b2sTiuouF4n9_ztg_fMbLL0tY');
+const $=s=>document.querySelector(s),monthKey=new Date().toISOString().slice(0,7),monthName=new Intl.DateTimeFormat('ru-RU',{month:'long',year:'numeric'}).format(new Date()).replace(/^./,c=>c.toUpperCase());let user=null,state={goals:[]};const error=m=>alert(m);
+async function save(){if(!user)return;const{error:e}=await client.from('monthly_plans').upsert({user_id:user.id,month_key:monthKey,plan:state},{onConflict:'user_id,month_key'});if(e)error('Не удалось сохранить: '+e.message)}
+async function loadPlan(){const{data,error:e}=await client.from('monthly_plans').select('plan').eq('month_key',monthKey).maybeSingle();if(e){error('Не удалось загрузить план: '+e.message);return}state=data?.plan||{goals:[]};renderGoals();if(!state.goals.length)$('#onboarding').showModal()}
+async function openApp(){$('#authView').classList.add('hidden');$('#appView').classList.remove('hidden');$('#monthName').textContent=monthName;$('#setupMonth').textContent=monthName;await loadPlan()}
+function formatGoal(g){return g.unit==='₽'?`${g.done.toLocaleString('ru-RU')} / ${g.target.toLocaleString('ru-RU')} ₽`:`${g.done} / ${g.target} ${g.unit}`}
+function renderGoals(){const root=$('#goalGroups');root.innerHTML='';const cats=['Спорт','Семья','Финансы'];let done=0,target=0;cats.forEach(cat=>{const goals=state.goals.filter(g=>g.category===cat);if(!goals.length)return;const group=document.createElement('section');group.className='group';group.innerHTML=`<div class="group-head"><h2>${cat}</h2><span>${goals.length} целей</span></div><div class="goal-list"></div>`;const list=group.querySelector('.goal-list');goals.forEach(g=>{done+=g.done;target+=g.target;const pct=Math.round(g.done/g.target*100),card=document.createElement('article');card.className='goal-card';card.innerHTML=`<div class="goal-top"><h3>${g.title}</h3><div><span class="goal-value">${formatGoal(g)}</span><button class="delete">×</button></div></div><div class="progress"><span style="width:${pct}%"></span></div><div class="goal-bottom"><span>${pct}% выполнено</span><input class="slider" type="range" min="0" max="${g.target}" value="${g.done}"></div>`;card.querySelector('.slider').oninput=async e=>{g.done=Number(e.target.value);renderGoals();await save()};card.querySelector('.delete').onclick=async()=>{state.goals=state.goals.filter(x=>x.id!==g.id);renderGoals();await save()};list.append(card)});root.append(group)});const pct=target?Math.round(done/target*100):0;$('#progressText').textContent=pct+'%';$('#totalProgress').style.width=pct+'%';$('#progressNote').textContent=target?`${done.toLocaleString('ru-RU')} из ${target.toLocaleString('ru-RU')} шагов выполнено.`:'Добавь первую цель для этого месяца.'}
+async function addGoal(x){state.goals.push({id:crypto.randomUUID(),title:x.title.trim(),category:x.category,done:Math.min(Number(x.done),Number(x.target)),target:Number(x.target),unit:x.unit.trim()||'раз'});renderGoals();await save()}
+function showAuth(mode){const name=$('#userName');$('#authTitle').textContent=mode==='login'?'Вход':'Регистрация';name.closest('label').style.display=mode==='login'?'none':'grid';name.disabled=mode==='login';$('#authForm').dataset.mode=mode;$('#authDialog').showModal()}
+$('#openRegister').onclick=()=>showAuth('register');$('#openLogin').onclick=()=>showAuth('login');$('#authForm').onsubmit=async e=>{e.preventDefault();const email=$('#userEmail').value,password=$('#userPassword').value,mode=e.currentTarget.dataset.mode;const r=mode==='login'?await client.auth.signInWithPassword({email,password}):await client.auth.signUp({email,password,options:{data:{name:$('#userName').value},emailRedirectTo:location.href}});if(r.error)return error(r.error.message);$('#authDialog').close();if(!r.data.session)return error('Проверь почту и подтверди регистрацию, затем войди.');user=r.data.user;await openApp()};
+$('#setupForm').onsubmit=async e=>{e.preventDefault();await addGoal({title:$('#firstGoal').value,category:$('#firstCategory').value,done:$('#firstDone').value,target:$('#firstTarget').value,unit:'раз'});$('#onboarding').close()};$('#addGoal').onclick=()=>$('#goalDialog').showModal();$('#goalForm').onsubmit=async e=>{e.preventDefault();await addGoal({title:$('#goalTitle').value,category:$('#goalCategory').value,done:$('#goalDone').value,target:$('#goalTarget').value,unit:$('#goalUnit').value});e.currentTarget.reset();$('#goalDone').value=0;$('#goalTarget').value=1;$('#goalUnit').value='раз';$('#goalDialog').close()};document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab,.panel').forEach(x=>x.classList.remove('active'));b.classList.add('active');$('#'+b.dataset.tab).classList.add('active')});client.auth.getSession().then(({data})=>{if(data.session){user=data.session.user;openApp()}});client.auth.onAuthStateChange((_e,s)=>{if(!s){user=null;$('#appView').classList.add('hidden');$('#authView').classList.remove('hidden')}});
