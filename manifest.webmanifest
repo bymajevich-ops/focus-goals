@@ -1,0 +1,9 @@
+{
+  "name": "Фокус — мои цели",
+  "short_name": "Фокус",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#111310",
+  "theme_color": "#111310",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

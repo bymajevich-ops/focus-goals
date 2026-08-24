@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f4f6fb" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Фокус" />
+    <meta name="description" content="Личный помощник для целей и ежедневного прогресса." />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icon.svg" />
+    <link rel="stylesheet" href="styles.css" />
+    <title>Фокус — мои цели</title>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="hero">
+        <p class="eyebrow">Личный план</p>
+        <div class="hero__row">
+          <div>
+            <h1>Добрый день</h1>
+            <p id="today" class="today"></p>
+          </div>
+          <div class="header-actions"><button id="voiceGoal" class="voice-button" aria-label="Добавить цель голосом">⌁</button><button id="addGoalTop" class="icon-button" aria-label="Добавить цель">+</button></div>
+        </div>
+      </header>
+
+      <section class="overview" aria-label="Общий прогресс">
+        <div class="overview__heading">
+          <span>Общий прогресс</span>
+          <strong id="totalProgress">0%</strong>
+        </div>
+        <div class="progress progress--large"><span id="totalBar"></span></div>
+        <p id="overviewText">Добавь первую цель — начнём спокойно.</p>
+      </section>
+
+      <section class="goals-section">
+        <div class="section-heading">
+          <div>
+            <h2>Мои цели</h2>
+            <p id="goalCount">0 активных</p>
+          </div>
+          <button id="addGoal" class="text-button">+ Цель</button>
+        </div>
+        <div id="goalList" class="goal-list"></div>
+      </section>
+    </main>
+
+    <dialog id="goalDialog" class="goal-dialog">
+      <form id="goalForm" method="dialog">
+        <div class="dialog-heading">
+          <h2>Новая цель</h2>
+          <button id="closeDialog" class="close-button" type="button" aria-label="Закрыть">×</button>
+        </div>
+        <label>Название цели
+          <input id="goalTitle" name="title" maxlength="80" placeholder="Например, читать каждый день" required autofocus />
+        </label>
+        <div class="form-grid">
+          <label>Сколько шагов
+            <input id="goalTarget" name="target" type="number" min="1" max="1000" value="7" required />
+          </label>
+          <label>Единица
+            <input id="goalUnit" name="unit" maxlength="25" placeholder="дней, книг, раз" value="дней" />
+          </label>
+        </div>
+        <label>Цвет
+          <select id="goalColor" name="color">
+            <option value="violet">Фиолетовый</option>
+            <option value="orange">Оранжевый</option>
+            <option value="green">Зелёный</option>
+            <option value="blue">Синий</option>
+          </select>
+        </label>
+        <button class="primary-button" type="submit">Создать цель</button>
+      </form>
+    </dialog>
+
+    <dialog id="voiceDialog" class="goal-dialog voice-dialog">
+      <div class="dialog-heading"><h2>Сказать цель</h2><button id="closeVoiceDialog" class="close-button" type="button" aria-label="Закрыть">×</button></div>
+      <div class="voice-orb" id="voiceOrb">⌁</div>
+      <p id="voiceStatus" class="voice-status">Нажми кнопку и скажи цель.</p>
+      <p id="voiceText" class="voice-text" aria-live="polite"></p>
+      <button id="startVoice" class="primary-button" type="button">Начать запись</button>
+      <p class="voice-hint">Например: «прочитать 12 книг» или «ходить в зал 20 раз».</p>
+    </dialog>
+
+    <template id="goalTemplate">
+      <article class="goal-card">
+        <div class="goal-card__top">
+          <span class="goal-card__dot"></span>
+          <button class="delete-button" title="Удалить цель" aria-label="Удалить цель">×</button>
+        </div>
+        <h3></h3>
+        <div class="goal-card__numbers"><span class="done-count"></span><span class="percent"></span></div>
+        <div class="progress"><span></span></div>
+        <div class="goal-card__bottom">
+          <span class="unit-label"></span>
+          <div class="stepper">
+            <button class="step-button minus" aria-label="Уменьшить прогресс">−</button>
+            <button class="step-button plus" aria-label="Добавить выполненный шаг">+</button>
+          </div>
+        </div>
+      </article>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
