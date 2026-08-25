@@ -1,4 +1,4 @@
-const cacheName = "focus-v16";
+const cacheName = "focus-v17";
 const assets = ["./", "./index.html", "./styles.css", "./app.js", "./manifest.webmanifest", "./favicon.png", "./assets-background.png"];
 self.addEventListener("install", (event) => event.waitUntil(caches.open(cacheName).then((cache) => cache.addAll(assets))));
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
